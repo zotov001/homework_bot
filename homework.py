@@ -77,8 +77,7 @@ def parse_status(homework):
 
 def check_tokens():
     """Проверка наличия/валидности токенов."""
-    tg_status = requests.get(CHECK_TG_TOKEN)
-    if tg_status.json().get('ok'):
+    if TELEGRAM_TOKEN is not None:
         if PRACTICUM_TOKEN is not None:
             if TELEGRAM_CHAT_ID is not None:
                 return True
