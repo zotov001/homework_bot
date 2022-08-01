@@ -31,8 +31,6 @@ HOMEWORK_STATUSES = {
     'rejected': 'Работа проверена: у ревьюера есть замечания.'
 }
 
-MISSING_TOKEN = '0'
-
 
 def send_message(bot, message):
     """Отправляет сообщение в Telegram чат."""
@@ -48,10 +46,10 @@ def get_api_answer(current_timestamp):
     params = {'from_date': timestamp}
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
-        if response.status_code != HTTPStatus.OK:
-            raise ConnectionError('Сервер недоступен')
     except RequestException as error:
-        raise RequestException(f'ошибка {error}')
+        raise ValueError('Некорректный ответ сервера Яндекс') from error
+    if response.status_code != HTTPStatus.OK:
+        raise ConnectionError('Сервер недоступен')
     return response.json()
 
 
@@ -60,13 +58,13 @@ def check_response(response):
     if len(response) == 0:
         logger.error('API-сервис выдал пустой ответ')
         raise ValueError('API-сервис выдал пустой ответ')
-    if type(response['homeworks']) != list:
+    if not isinstance(response['homeworks'], list):
         logger.error('API-сервис выдал другой тип данных')
         raise TypeError('API-сервис выдал другой тип данных')
-    if type(response) != dict:
+    if not isinstance(response, dict):
         logger.error('API-сервис выдал другой тип данных')
         raise TypeError('API-сервис выдал другой тип данных')
-    if 'homeworks' not in response.keys():
+    if 'homeworks' not in response:
         logger.error('В словаре нет ключа homeworks')
         raise KeyError('В словаре нет ключа homeworks')
     return response.get('homeworks')
@@ -81,7 +79,7 @@ def parse_status(homework):
         logger.error('Ошибка отсутствует ключ статуса ДЗ')
         raise KeyError('Ошибка отсутствует ключ статуса ДЗ')
     hw_name = homework['homework_name']
-    hw_status = homework.get('status')
+    hw_status = homework['status']
     if hw_status not in HOMEWORK_STATUSES:
         logger.error('Неизвестный статус ДЗ')
         raise ValueError('Неизвестный статус ДЗ')
@@ -91,18 +89,19 @@ def parse_status(homework):
 
 def check_tokens():
     """Проверка наличия токенов."""
-    if TELEGRAM_TOKEN:
-        if PRACTICUM_TOKEN:
-            if TELEGRAM_CHAT_ID:
-                return True
-            else:
-                globals()['MISSING_TOKEN'] = 'ID чата'
-        else:
-            globals()['MISSING_TOKEN'] = 'Практикума'
-    else:
-        globals()['MISSING_TOKEN'] = 'Телеграма'
-    logger.critical(f'Ошибка, отсутствует токен {MISSING_TOKEN}')
-    # exit() не проходит тест
+    TOKENS = {
+        'Практикум ': PRACTICUM_TOKEN,
+        'Телеграм ': TELEGRAM_TOKEN,
+        'ТГ ID ': TELEGRAM_CHAT_ID
+    }
+    mis_token = ""
+    for token in TOKENS:
+        if not TOKENS.get(token):
+            mis_token += token
+    if len(mis_token) > 1:
+        logger.critical(f'Ошибка, отсутствует токен {mis_token}')
+        return False
+    return True
 
 
 def main():
@@ -132,5 +131,5 @@ def main():
 
 
 if __name__ == '__main__':
-    check_tokens()
-    main()
+    if check_tokens():
+        main()
